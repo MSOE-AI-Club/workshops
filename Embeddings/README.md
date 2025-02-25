@@ -16,6 +16,8 @@ Prereqs:
 - Install [Python](https://www.python.org/downloads/)
 - Ensure you can run notebooks in VSCode.
 
+Job listing dataset credit: https://www.kaggle.com/datasets/kshitizregmi/jobs-and-job-description (You don't need to download this yourself)
+
 Embeddings are an extremely useful tool in modern machine learning, allowing raw text to be transformed into numerical representations that models can understand.
 They are also a popular interview question to test a candidate’s understanding of vector spaces, similarity metrics, and real-world applications.
 Beyond that, embeddings are incredibly common in ML, powering everything from search engines and recommendation systems to chatbots and fraud detection.
