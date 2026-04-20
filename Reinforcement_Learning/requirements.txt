@@ -1,0 +1,5 @@
+gymnasium
+numpy
+opencv-python-headless
+stable_baselines3
+imageio[ffmpeg]
