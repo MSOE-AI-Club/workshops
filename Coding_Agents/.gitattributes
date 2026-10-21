@@ -1,0 +1,2 @@
+# bash on macOS fails on Windows line endings.
+*.sh text eol=lf

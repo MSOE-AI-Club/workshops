@@ -1,10 +1,17 @@
 <#
 Coding Agents workshop setup for Windows 10 and 11.
 
-Installs: git, uv, Python 3.12 (through uv), Node.js LTS, the Codex CLI, and
-ruff. Then it sets up Codex: workshop defaults, workshop skills, and sign-in.
+Installs: git, uv, Python 3.12 (through uv), the Codex CLI, VS Code, and the
+Codex VS Code extension. The project's Python packages come from its
+requirements.txt. Then it sets up Codex (workshop
+defaults and sign-in) and copies the workshop project, with the factory skills,
+to %USERPROFILE%\agent-factory.
 Safe to run more than one time: it skips tools and settings that are already
 there.
+
+Sign-in: if a workshop-key.txt file is next to the setup folder, Codex signs in
+with that API key, so students do not need an account. Without the file, the
+script asks for a key, or signs in with a ChatGPT account.
 
 Usage (from a normal PowerShell window, not as Administrator):
   powershell -ExecutionPolicy Bypass -File setup.ps1            install everything
@@ -19,9 +26,18 @@ param(
 $ErrorActionPreference = 'Continue'
 $PythonVersion = '3.12'
 $CodexInstaller = 'https://chatgpt.com/codex/install.ps1'
+$CodexExtension = 'openai.chatgpt'
+# The cheapest Codex model. The workshop API key's project only allows this one.
+$Model = 'gpt-6-luna'
+$ReasoningEffort = 'medium'
 # Empty if the script is not run from a file.
-$SkillsSrc = if ($PSScriptRoot) { Join-Path $PSScriptRoot '..\skills' } else { '' }
-$SkillsDest = Join-Path $HOME '.agents\skills'
+$ZipRoot = if ($PSScriptRoot) { Join-Path $PSScriptRoot '..' } else { '' }
+$SkillsSrc = if ($ZipRoot) { Join-Path $ZipRoot 'skills' } else { '' }
+$StarterSrc = if ($ZipRoot) { Join-Path $ZipRoot 'starter' } else { '' }
+$KeyFile = if ($ZipRoot) { Join-Path $ZipRoot 'workshop-key.txt' } else { '' }
+$ProjectDir = Join-Path $HOME 'agent-factory'
+# Repo skills: Codex finds them in .agents\skills when it runs in the project.
+$SkillsDest = Join-Path $ProjectDir '.agents\skills'
 # Codex reads its config from CODEX_HOME when it is set.
 $CodexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $HOME '.codex' }
 $CodexConfig = Join-Path $CodexHome 'config.toml'
@@ -52,7 +68,7 @@ function Update-SessionPath {
     $env:Path = (@($new) + $current) -join ';'
 }
 
-function Install-Winget($id, $label) {
+function Install-Winget($id, $label, [string[]]$extra = @()) {
     if (-not (Have 'winget')) {
         Fail 'winget was not found. Install "App Installer" from the Microsoft Store, then run this again.'
         return $false
@@ -60,8 +76,9 @@ function Install-Winget($id, $label) {
     Say "  Installing $label with winget"
     # Start-Process gives winget the real console. Piped output prints each
     # progress spinner frame on a new line.
-    $process = Start-Process -FilePath 'winget' -NoNewWindow -Wait -PassThru -ArgumentList `
+    $process = Start-Process -FilePath 'winget' -NoNewWindow -Wait -PassThru -ArgumentList (@(
         'install', '--exact', '--id', $id, '--silent', '--accept-package-agreements', '--accept-source-agreements'
+    ) + $extra)
     # Exit codes are not reliable (a reboot-needed code still means installed),
     # so the caller checks if the command is found. This only shows the code.
     $code = $process.ExitCode
@@ -128,17 +145,35 @@ function Show-Logo {
 
 function First-Line($text) { if ($text) { ("$text" -split "`n")[0].Trim() } else { '' } }
 
-# npm, npx, and an npm-installed codex are .ps1 files. A new PowerShell window
-# runs them only if the execution policy allows local scripts. This script runs
-# with Bypass, so it must check the policy that a new window gets.
-$ScriptPolicyOk = @('RemoteSigned', 'Unrestricted', 'Bypass')
-function Get-NewWindowPolicy {
-    foreach ($scope in 'MachinePolicy', 'UserPolicy', 'CurrentUser', 'LocalMachine') {
-        $policy = "$(Get-ExecutionPolicy -Scope $scope)"
-        if ($policy -ne 'Undefined') { return @{ Policy = $policy; Scope = $scope } }
+function Get-CodeCommand {
+    # VS Code can be installed without its bin folder on PATH (for example when
+    # "Add to PATH" was turned off), so also look in the install folders.
+    if (Have 'code') { return 'code' }
+    foreach ($dir in "$env:LOCALAPPDATA\Programs\Microsoft VS Code", "$env:ProgramFiles\Microsoft VS Code") {
+        $cmd = Join-Path $dir 'bin\code.cmd'
+        if (Test-Path $cmd) { return $cmd }
     }
-    # Nothing set: Windows 10 and 11 use Restricted.
-    return @{ Policy = 'Restricted'; Scope = 'Default' }
+    return ''
+}
+
+function Get-VSCodeVersion {
+    $code = Get-CodeCommand
+    if ($code) { First-Line (& $code --version) } else { '' }
+}
+
+function Test-CodexExtension {
+    $code = Get-CodeCommand
+    if (-not $code) { return $false }
+    return [bool](& $code --list-extensions | Where-Object { $_ -eq $CodexExtension })
+}
+
+function Read-WorkshopKey {
+    # The key file is in the zip that facilitators share. It is never in git.
+    if (-not $KeyFile -or -not (Test-Path $KeyFile)) { return '' }
+    $key = "$(Get-Content -Path $KeyFile -Raw)".Trim()
+    if ($key -match '^sk-\S+$') { return $key }
+    Warn "$KeyFile does not look like an OpenAI API key (it should start with sk-)."
+    return ''
 }
 
 function Get-PythonCommand {
@@ -188,23 +223,26 @@ function Show-Report {
     # garbled in Windows PowerShell 5.1 when the user name has letters like e-acute.
     $py = ''
     if (Have 'uv') { uv python find $PythonVersion *> $null; if ($LASTEXITCODE -eq 0) { $py = 'installed' } }
-    $policy = Get-NewWindowPolicy
     Say 'Workshop tools'
     Report-Row 'git'            $(if (Have 'git')  { (git --version) -replace 'git version ', '' }) $true
     Report-Row 'uv'             $(if (Have 'uv')   { (uv --version) -replace 'uv ', '' }) $true
     Report-Row "Python $PythonVersion" $py $true
     Report-Row 'python command' (Get-PythonCommand) $true
-    Report-Row 'node'           $(if (Have 'node') { node --version }) $true
-    Report-Row 'npm'            $(if (Have 'npm')  { npm --version }) $true
-    $policyText = ''
-    if ($ScriptPolicyOk -contains $policy.Policy) { $policyText = $policy.Policy }
-    elseif ($policy.Scope -like '*Policy') { $policyText = "$($policy.Policy), set by your organization: use npm.cmd, npx.cmd" }
-    Report-Row 'script policy'  $policyText $true
     Report-Row 'codex'          $(if (Have 'codex') { First-Line (codex --version) }) $true
-    Report-Row 'ruff'           $(if (Have 'ruff') { ruff --version }) $false
+    Report-Row 'VS Code'        (Get-VSCodeVersion) $true
+    Report-Row 'Codex extension' $(if (Test-CodexExtension) { $CodexExtension }) $true
+    Report-Row 'project'        $(if (Test-Path (Join-Path $ProjectDir 'AGENTS.md')) { $ProjectDir }) $true
+    Report-Row 'packages'       $(if (Test-Path (Join-Path $ProjectDir '.venv')) { 'installed in .venv' }) $true
     $script:SignedIn = $false
-    if (Have 'codex') { codex login status *> $null; $script:SignedIn = ($LASTEXITCODE -eq 0) }
-    Report-Row 'Codex sign-in'  $(if ($script:SignedIn) { 'yes' }) $false
+    $signIn = ''
+    if (Have 'codex') {
+        # "Logged in using an API key - sk-...1234" or "Logged in using ChatGPT".
+        # The key is masked in this output.
+        $status = First-Line (codex login status 2>&1)
+        $script:SignedIn = ($LASTEXITCODE -eq 0)
+        if ($script:SignedIn) { $signIn = $status -replace '^Logged in using ', '' }
+    }
+    Report-Row 'Codex sign-in'  $signIn $false
 
     if (Have 'git') {
         $name = git config --global user.name
@@ -230,15 +268,15 @@ if ($Check) {
         Write-Host "  $RunCommand"
         Exit-Script 1
     }
-    if (-not $script:SignedIn) { Warn 'Codex is not signed in. Run: codex login' }
-    else { Ok 'Ready for the workshop.' }
+    if (-not $script:SignedIn) { Warn 'Codex is not signed in. Run the setup script again, or run: codex login' }
+    else { Ok "Ready for the workshop. Open the project with: code `"$ProjectDir`"" }
     Exit-Script 0
 }
 
 # ---------- install steps ----------
 
 Say "Coding Agents workshop setup (Windows, $env:PROCESSOR_ARCHITECTURE)"
-Write-Host "  This installs: git, uv, Python $PythonVersion, Node.js LTS, Codex CLI, ruff."
+Write-Host "  This installs: git, uv, Python $PythonVersion, Codex CLI, VS Code, Codex for VS Code."
 Write-Host '  Tools you already have are skipped.'
 
 try {
@@ -285,27 +323,6 @@ Run-Step 'git' {
     return $true
 }
 
-Run-Step 'PowerShell script policy' {
-    $policy = Get-NewWindowPolicy
-    if ($ScriptPolicyOk -contains $policy.Policy) { Ok "Script policy is $($policy.Policy)"; return $true }
-    if ($policy.Scope -like '*Policy') {
-        Warn "Your organization sets the script policy to $($policy.Policy). You cannot change it."
-        Warn 'In PowerShell, type npm.cmd, npx.cmd, and codex.cmd (if codex came from npm) instead.'
-        return $true
-    }
-    Write-Host "  New PowerShell windows block scripts (policy: $($policy.Policy)). npm and npx need them."
-    if (-not (Confirm-Step 'Allow local scripts for your user only (RemoteSigned)? No admin needed.')) {
-        Warn 'Not changed. npm and npx will not work in a new PowerShell window. Run this script again and answer Y.'
-        return $false
-    }
-    # Windows PowerShell can show an error here because this run uses Bypass.
-    # The change still applies, so check the result instead of the error.
-    try { Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force -ErrorAction Stop } catch { }
-    $policy = Get-NewWindowPolicy
-    if ($ScriptPolicyOk -contains $policy.Policy) { Ok "Script policy is $($policy.Policy)"; return $true }
-    return $false
-}
-
 Run-Step 'uv' {
     if (Have 'uv') { Ok "uv $((uv --version) -replace 'uv ', '')"; return $true }
     powershell -NoProfile -ExecutionPolicy Bypass -Command 'irm https://astral.sh/uv/install.ps1 | iex'
@@ -337,41 +354,37 @@ Run-Step "Python $PythonVersion" {
     return $true
 }
 
-Run-Step 'Node.js' {
-    if (Have 'node') { Ok "node $(node --version)"; return $true }
-    Install-Winget 'OpenJS.NodeJS.LTS' 'Node.js LTS'
-    return (Have 'node')
-}
-
 Run-Step 'Codex CLI' {
     if (Have 'codex') { Ok (First-Line (codex --version)); return $true }
     powershell -NoProfile -ExecutionPolicy Bypass -Command "irm $CodexInstaller | iex"
     Update-SessionPath
-    if (Have 'codex') { return $true }
-    # Fallback: the npm package works anywhere Node.js is installed.
-    if (Have 'npm') {
-        Warn 'The Codex installer did not finish. Trying npm instead.'
-        npm install -g @openai/codex
-        Update-SessionPath
-    }
     return (Have 'codex')
 }
 
-Run-Step 'ruff' -Optional {
-    if (Have 'ruff') { Ok (ruff --version); return $true }
-    if (-not (Have 'uv')) { return $false }
-    uv tool install ruff *> $null
-    Update-SessionPath
-    if (-not (Have 'ruff')) { return $false }
-    Ok (ruff --version)
+Run-Step 'VS Code' {
+    if (-not (Get-CodeCommand)) {
+        # --scope user installs VS Code for this user only, so it needs no admin.
+        Install-Winget 'Microsoft.VisualStudioCode' 'VS Code' @('--scope', 'user')
+    }
+    $version = Get-VSCodeVersion
+    if (-not $version) { return $false }
+    Ok "VS Code $version"
     return $true
 }
 
+Run-Step 'Codex for VS Code' {
+    $code = Get-CodeCommand
+    if (-not $code) { return $false }
+    if (Test-CodexExtension) { Ok "Extension $CodexExtension already installed"; return $true }
+    & $code --install-extension $CodexExtension
+    return (Test-CodexExtension)
+}
+
 Run-Step 'Codex settings' {
-    # Workshop defaults: Codex can edit files in the project and use the network
-    # (npm install, uv sync), and asks before it does anything outside it.
-    # Without [windows] sandbox, Codex runs with no sandbox on Windows;
-    # "unelevated" needs no admin. An existing config is never changed.
+    # Workshop defaults: the cheap model, and Codex can edit files in the project
+    # and use the network (uv pip install), and asks before it does
+    # anything outside it. Without [windows] sandbox, Codex runs with no sandbox
+    # on Windows; "unelevated" needs no admin. An existing config is never changed.
     if (Test-Path $CodexConfig) {
         Ok "$CodexConfig already exists, not changed"
         if (-not (Select-String -Path $CodexConfig -Pattern '^\s*(\[windows\]|windows\.sandbox\s*=)' -Quiet)) {
@@ -379,10 +392,18 @@ Run-Step 'Codex settings' {
             Write-Host '      [windows]'
             Write-Host '      sandbox = "unelevated"'
         }
+        $modelLine = Select-String -Path $CodexConfig -Pattern '^\s*model\s*=\s*"([^"]*)"' | Select-Object -First 1
+        if (-not $modelLine -or $modelLine.Matches[0].Groups[1].Value -ne $Model) {
+            Warn "It does not use $Model. The workshop key only works with $Model. Add these lines at the top of it:"
+            Write-Host "      model = `"$Model`""
+            Write-Host "      model_reasoning_effort = `"$ReasoningEffort`""
+        }
     } else {
         New-Item -ItemType Directory -Force -Path (Split-Path $CodexConfig) | Out-Null
         $config = @(
             '# Made by the AI Club workshop setup script. Edit it as you like.',
+            "model = `"$Model`"",
+            "model_reasoning_effort = `"$ReasoningEffort`"",
             'approval_policy = "on-request"',
             'sandbox_mode = "workspace-write"',
             '',
@@ -396,12 +417,25 @@ Run-Step 'Codex settings' {
         [IO.File]::WriteAllLines($CodexConfig, $config)
         Ok "Made $CodexConfig"
     }
+    return $true
+}
 
-    if (-not $SkillsSrc -or -not (Test-Path $SkillsSrc)) {
-        Warn "Workshop skills not copied: no skills folder at $SkillsSrc"
-        Warn 'The setup and skills folders must be next to each other. Run setup.ps1 from the extracted folder.'
-        return $true
+Run-Step 'Workshop project' {
+    if (-not $StarterSrc -or -not (Test-Path $StarterSrc) -or -not (Test-Path $SkillsSrc)) {
+        Fail "No starter or skills folder next to the setup folder ($ZipRoot)."
+        Fail 'Extract the zip file, then run setup.ps1 from the extracted setup folder.'
+        return $false
     }
+    if (Test-Path (Join-Path $ProjectDir 'AGENTS.md')) {
+        Ok "$ProjectDir already exists, not changed"
+    } else {
+        New-Item -ItemType Directory -Force -Path $ProjectDir | Out-Null
+        # -Force includes dot files such as .gitignore.
+        Get-ChildItem -Path $StarterSrc -Force |
+            Copy-Item -Destination $ProjectDir -Recurse -Force -ErrorAction Stop
+        Ok "Copied the workshop project to $ProjectDir"
+    }
+
     New-Item -ItemType Directory -Force -Path $SkillsDest | Out-Null
     $copyFailed = $false
     foreach ($skill in Get-ChildItem -Path $SkillsSrc -Directory) {
@@ -422,13 +456,64 @@ Run-Step 'Codex settings' {
             $copyFailed = $true
         }
     }
-    return (-not $copyFailed)
+
+    # The skills read git diffs, so the project starts as a repo with one commit.
+    if ((Have 'git') -and -not (Test-Path (Join-Path $ProjectDir '.git'))) {
+        git -C $ProjectDir init --quiet
+        # safecrlf=false hides one "LF will be replaced by CRLF" warning per file.
+        git -C $ProjectDir -c core.safecrlf=false add -A
+        $identity = @()
+        if (-not (git config --global user.name)) { $identity += '-c', 'user.name=Workshop' }
+        if (-not (git config --global user.email)) { $identity += '-c', 'user.email=workshop@example.com' }
+        git -C $ProjectDir @identity commit --quiet -m 'Starting point'
+        if ($LASTEXITCODE -eq 0) { Ok 'Made a git repo with a first commit' }
+        else { Warn "Could not make the first commit. In $ProjectDir run: git add -A; git commit -m start" }
+    }
+
+    # The packages in requirements.txt go in the project's .venv, where uv run finds them.
+    $packagesOk = $false
+    if (Have 'uv') {
+        Push-Location $ProjectDir
+        if (-not (Test-Path '.venv')) { uv venv --quiet --python $PythonVersion }
+        uv pip install --quiet -r requirements.txt
+        $packagesOk = ($LASTEXITCODE -eq 0)
+        Pop-Location
+    }
+    if ($packagesOk) { Ok 'Packages from requirements.txt installed in .venv' }
+    else { Fail "Packages not installed. In $ProjectDir run: uv venv; uv pip install -r requirements.txt" }
+    return ((-not $copyFailed) -and $packagesOk)
 }
 
 Run-Step 'Codex sign-in' -Optional {
     if (-not (Have 'codex')) { return $false }
-    codex login status *> $null
-    if ($LASTEXITCODE -eq 0) { Ok 'Signed in to Codex'; return $true }
+    $status = First-Line (codex login status 2>&1)
+    if ($LASTEXITCODE -eq 0) { Ok "Signed in to Codex: $status"; return $true }
+
+    $key = Read-WorkshopKey
+    if ($key) {
+        Write-Host '  Using the workshop API key from workshop-key.txt.'
+    } elseif (-not $Yes) {
+        Write-Host '  If the workshop gave you an API key, paste it here (right-click pastes).'
+        Write-Host '  To use your own ChatGPT account instead, press Enter.'
+        $secure = Read-Host '  Workshop key' -AsSecureString
+        $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+        try { $key = "$([Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr))".Trim() }
+        finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
+        if ($key -and $key -notmatch '^sk-\S+$') {
+            Warn 'That does not look like an API key (it should start with sk-).'
+            $key = ''
+        }
+    }
+    if ($key) {
+        # --with-api-key reads stdin, so the key is not in the command line or history.
+        # The CLI and the VS Code extension share this sign-in.
+        $key | codex login --with-api-key
+        codex login status *> $null
+        if ($LASTEXITCODE -eq 0) { Ok 'Signed in to Codex with the workshop key'; return $true }
+        Warn 'Sign-in with the workshop key did not finish. Ask a facilitator.'
+        return $false
+    }
+
     if ($Yes -or -not (Confirm-Step 'Sign in to Codex now? Use your ChatGPT account.')) {
         Warn 'Not signed in. Later, run: codex login'
         return $true
@@ -473,6 +558,8 @@ if (-not $script:SignedIn) {
 } else {
     Ok 'Ready for the workshop.'
 }
-Write-Host '  Open a NEW PowerShell window so the new tools are found. To check again later, run:'
+Write-Host '  Open a NEW PowerShell window so the new tools are found. To open the workshop project, run:'
+Write-Host "  code `"$ProjectDir`""
+Write-Host '  To check again later, run:'
 Write-Host "  $CheckCommand"
 Exit-Script 0

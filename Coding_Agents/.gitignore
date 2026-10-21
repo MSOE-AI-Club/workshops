@@ -1,0 +1,17 @@
+# The workshop API key and the zip that contains it are shared on Teams, never in git.
+workshop-key.txt
+*.key.txt
+dist/
+
+# The starter project only ships the bones of Snake. Everything an agent writes
+# on top of them (while you rehearse in starter/) stays out of git.
+starter/.venv/
+starter/factory/current/
+starter/factory/done/
+starter/snake/*
+!starter/snake/__init__.py
+!starter/snake/__main__.py
+!starter/snake/app.py
+!starter/snake/game.py
+starter/tests/*
+!starter/tests/test_game.py
