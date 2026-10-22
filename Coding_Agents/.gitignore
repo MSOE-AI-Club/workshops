@@ -3,6 +3,9 @@ workshop-key.txt
 *.key.txt
 dist/
 
+# The slide deck is shared separately, not in git.
+*.pptx
+
 # The starter project only ships the bones of Snake. Everything an agent writes
 # on top of them (while you rehearse in starter/) stays out of git.
 starter/.venv/

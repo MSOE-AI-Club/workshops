@@ -102,6 +102,34 @@ The rules it must follow are in `README.md`.
 
 Tips: keep it short (it's in every chat), be specific, and add to it whenever you correct the agent twice. (Claude Code reads `CLAUDE.md` instead.)
 
+### Let's use it
+
+Setup put the workshop project in `agent-factory` in your user folder. Open it in VS Code (PowerShell on Windows, Terminal on a Mac):
+
+```text
+code ~/agent-factory
+```
+
+Click the **Codex** icon in the side bar (or Ctrl/Cmd+Shift+P, **Codex: Open Codex Sidebar**). Open `AGENTS.md` from the file list too, so you can compare.
+
+> ```
+>  ____ _____ ___  ____    _
+> / ___|_   _/ _ \|  _ \  / |
+> \___ \ | || | | | |_) | | |
+>  ___) || || |_| |  __/  | |
+> |____/ |_| \___/|_|     |_|
+> ```
+>
+> ### ⚠️ See AGENTS.md at work
+>
+> ```text
+> What does this project do? How do I run the tests, and what rules should you follow when you change the code?
+> ```
+>
+> **What happens:** Codex answers with the commands and rules from `AGENTS.md`, even though you never typed them. It may run the tests to check (1 passes; there's no game yet). Each command it runs is one trip around the harness loop.
+>
+> **Check:** compare its answer with `AGENTS.md`. Every rule it lists came from that file.
+
 ```
  _    ___ ___ ___  ___  _  _   ____
 | |  | __/ __/ __|/ _ \| \| | |__ /
@@ -134,6 +162,24 @@ Why skills: you stop repeating yourself, the job gets done the same way every ti
 **A prompt is for this task. `AGENTS.md` is for every task. A skill is for a kind of task.**
 
 (Codex: `.agents/skills/`. Claude Code: `.claude/skills/`. Same format.)
+
+> ```
+>  ____ _____ ___  ____    ____
+> / ___|_   _/ _ \|  _ \  |___ \
+> \___ \ | || | | | |_) |   __) |
+>  ___) || || |_| |  __/   / __/
+> |____/ |_| \___/|_|     |_____|
+> ```
+>
+> ### ⚠️ See the skills
+>
+> ```text
+> List the factory skills in .agents/skills and tell me in one line what each one does. Don't run any of them yet.
+> ```
+>
+> **What happens:** Codex finds four skills and reads their descriptions. That short description is all it sees until you call one.
+>
+> **Check:** type `$` in the chat box. The four `factory-` skills should pop up.
 
 ```
  _    ___ ___ ___  ___  _  _   _ _
@@ -198,13 +244,7 @@ Borrowed from Vercel's [eve Software Factory](https://vercel.com/kb/guide/eve-so
 
 ## Let's build something
 
-Setup put the **bones of a Snake game** in `agent-factory` in your user folder: a window with an empty board, and TODOs. Your factory builds the rest. Open it:
-
-```text
-code ~/agent-factory
-```
-
-Click the **Codex** icon in the side bar (or Ctrl/Cmd+Shift+P, **Codex: Open Codex Sidebar**). Run `uv run python -m snake` in the VS Code terminal to see the empty board (Esc quits).
+Your project has the **bones of a Snake game**: a window with an empty board, and TODOs. Your factory builds the rest. Run `uv run python -m snake` in the VS Code terminal to see the empty board (Esc quits).
 
 What's in the project:
 
@@ -213,24 +253,6 @@ What's in the project:
 - `AGENTS.md`, `BRAIN.md`: always-on instructions and the factory brain.
 - `.agents/skills/`: four stations. Audit is missing; you'll write it.
 - `factory/`: each run's paperwork, plus `BACKLOG.md` (game ideas) and `skill-template.md`.
-
-> ```
->  ____ _____ ___  ____    _
-> / ___|_   _/ _ \|  _ \  / |
-> \___ \ | || | | | |_) | | |
->  ___) || || |_| |  __/  | |
-> |____/ |_| \___/|_|     |_|
-> ```
->
-> ### ⚠️ Say hi to your agent
->
-> ```text
-> What does this project do? Run the tests, then list the factory skills in .agents/skills and tell me in one line what each one does.
-> ```
->
-> **What happens:** Codex reads the project, runs the tests (1 passes; there's no game yet), and opens the skills. Each command it runs is one trip around the harness loop.
->
-> **Check:** type `$` in the chat box. Four `factory-` skills should appear.
 
 ```
  ___ _  _ _____ _   _  _____
@@ -244,11 +266,11 @@ What's in the project:
 What's being asked for and why, in plain language. No *how* yet. Intake asks at most 3 questions and writes down the rest as assumptions.
 
 > ```
->  ____ _____ ___  ____    ____
-> / ___|_   _/ _ \|  _ \  |___ \
-> \___ \ | || | | | |_) |   __) |
->  ___) || || |_| |  __/   / __/
-> |____/ |_| \___/|_|     |_____|
+>  ____ _____ ___  ____    _____
+> / ___|_   _/ _ \|  _ \  |___ /
+> \___ \ | || | | | |_) |   |_ \
+>  ___) || || |_| |  __/   ___) |
+> |____/ |_| \___/|_|     |____/
 > ```
 >
 > ### ⚠️ Hand intake the ticket
@@ -278,11 +300,11 @@ What's being asked for and why, in plain language. No *how* yet. Intake asks at 
 Shape waits for your approval. Nothing gets built until you say so.
 
 > ```
->  ____ _____ ___  ____    _____
-> / ___|_   _/ _ \|  _ \  |___ /
-> \___ \ | || | | | |_) |   |_ \
->  ___) || || |_| |  __/   ___) |
-> |____/ |_| \___/|_|     |____/
+>  ____ _____ ___  ____    _  _
+> / ___|_   _/ _ \|  _ \  | || |
+> \___ \ | || | | | |_) | | || |_
+>  ___) || || |_| |  __/  |__   _|
+> |____/ |_| \___/|_|        |_|
 > ```
 >
 > ### ⚠️ Shape the spec, then approve it
@@ -313,11 +335,11 @@ One criterion at a time, test first: write a test, watch it **fail**, write just
 Codex edits files in the project on its own, but asks before anything outside it. Read the command before you approve.
 
 > ```
->  ____ _____ ___  ____    _  _
-> / ___|_   _/ _ \|  _ \  | || |
-> \___ \ | || | | | |_) | | || |_
->  ___) || || |_| |  __/  |__   _|
-> |____/ |_| \___/|_|        |_|
+>  ____ _____ ___  ____    ____
+> / ___|_   _/ _ \|  _ \  | ___|
+> \___ \ | || | | | |_) | |___ \
+>  ___) || || |_| |  __/   ___) |
+> |____/ |_| \___/|_|     |____/
 > ```
 >
 > ### ⚠️ Build it
@@ -350,11 +372,11 @@ An inspector who didn't watch the build. It runs in a **new chat**, so it doesn'
 **You write this station.** The one hard requirement: it writes `factory/current/REVIEW.md` ending in `Verdict: PASS` or `Verdict: REVISE`, because build and close look for that.
 
 > ```
->  ____ _____ ___  ____    ____
-> / ___|_   _/ _ \|  _ \  | ___|
-> \___ \ | || | | | |_) | |___ \
->  ___) || || |_| |  __/   ___) |
-> |____/ |_| \___/|_|     |____/
+>  ____ _____ ___  ____     __
+> / ___|_   _/ _ \|  _ \   / /_
+> \___ \ | || | | | |_) | | '_ \
+>  ___) || || |_| |  __/  | (_) |
+> |____/ |_| \___/|_|      \___/
 > ```
 >
 > ### ⚠️ Write your audit skill
@@ -378,11 +400,11 @@ An inspector who didn't watch the build. It runs in a **new chat**, so it doesn'
 > **Check:** does the `description` say *what* and *when*? Would two agents follow the steps the same way? Edit, then tell it to save.
 
 > ```
->  ____ _____ ___  ____     __
-> / ___|_   _/ _ \|  _ \   / /_
-> \___ \ | || | | | |_) | | '_ \
->  ___) || || |_| |  __/  | (_) |
-> |____/ |_| \___/|_|      \___/
+>  ____ _____ ___  ____    _____
+> / ___|_   _/ _ \|  _ \  |___  |
+> \___ \ | || | | | |_) |    / /
+>  ___) || || |_| |  __/    / /
+> |____/ |_| \___/|_|      /_/
 > ```
 >
 > ### ⚠️ Run your audit in a new chat
@@ -413,11 +435,11 @@ An inspector who didn't watch the build. It runs in a **new chat**, so it doesn'
 Close proposes 1 to 3 **lessons** for `BRAIN.md`: things a future run would get wrong without them. You approve each one, because every future run reads that file.
 
 > ```
->  ____ _____ ___  ____    _____
-> / ___|_   _/ _ \|  _ \  |___  |
-> \___ \ | || | | | |_) |    / /
->  ___) || || |_| |  __/    / /
-> |____/ |_| \___/|_|      /_/
+>  ____ _____ ___  ____     ___
+> / ___|_   _/ _ \|  _ \   ( _ )
+> \___ \ | || | | | |_) |  / _ \
+>  ___) || || |_| |  __/  | (_) |
+> |____/ |_| \___/|_|      \___/
 > ```
 >
 > ### ⚠️ Close the run
@@ -451,10 +473,10 @@ When a station gets something wrong, don't fix the code. **Fix the instructions,
 
 > ```
 >  ____ _____ ___  ____     ___    _
-> / ___|_   _/ _ \|  _ \   ( _ )  / \
-> \___ \ | || | | | |_) |  / _ \ / _ \
->  ___) || || |_| |  __/  | (_) / ___ \
-> |____/ |_| \___/|_|      \___/_/   \_\
+> / ___|_   _/ _ \|  _ \   / _ \  / \
+> \___ \ | || | | | |_) | | (_) |/ _ \
+>  ___) || || |_| |  __/   \__, / ___ \
+> |____/ |_| \___/|_|        /_/_/   \_\
 > ```
 >
 > ### ⚠️ Improve a skill
@@ -471,10 +493,10 @@ When a station gets something wrong, don't fix the code. **Fix the instructions,
 
 > ```
 >  ____ _____ ___  ____     ___  ____
-> / ___|_   _/ _ \|  _ \   ( _ )| __ )
-> \___ \ | || | | | |_) |  / _ \|  _ \
->  ___) || || |_| |  __/  | (_) | |_) |
-> |____/ |_| \___/|_|      \___/|____/
+> / ___|_   _/ _ \|  _ \   / _ \| __ )
+> \___ \ | || | | | |_) | | (_) |  _ \
+>  ___) || || |_| |  __/   \__, | |_) |
+> |____/ |_| \___/|_|        /_/|____/
 > ```
 >
 > ### ⚠️ Add a new station
@@ -514,5 +536,11 @@ Habits for any agent:
 - Keep runs small.
 
 **Take it home:** copy `.agents/skills/`, `AGENTS.md`, `BRAIN.md`, and `factory/` into your own project. The workshop key stops working after today; to keep using Codex, run `codex logout`, then `codex login`.
+
+### Where to go next
+
+- **Give your agent more tools with MCP.** The Model Context Protocol is an open standard for plugging an agent into GitHub, live docs, a browser, or a database, so it reads the real thing instead of guessing. Ask Codex to set one up, or run `codex mcp add`. ([Codex MCP guide](https://learn.chatgpt.com/docs/extend/mcp), [modelcontextprotocol.io](https://modelcontextprotocol.io/))
+- **Run agents in parallel.** Give each one its own git worktree, or hand a ticket to a cloud agent and come back to a pull request.
+- **Keep learning.** Matt Pocock's [YouTube channel](https://www.youtube.com/@mattpocockuk) and [AI Hero](https://www.aihero.dev/) cover agent workflows and skills, and his [skills repo](https://github.com/mattpocock/skills) is full of station ideas. The [Codex manual](https://learn.chatgpt.com/docs/codex-manual) goes deeper on skills, `AGENTS.md`, and MCP.
 
 Questions?
